@@ -91,18 +91,16 @@ final_products = prod_pet_fr.withColumn("complete_mystery", when((\
 (col("mom")==0) & (col("single")==0) & (col("pet_friendly")==0)), lit(1)).otherwise(lit(0)))
 
 ##WRITE TABLE... IF TABLE EXISTS, SAVE LEFANTI IN OTHER NEW
-'''
+
 table_list=spark.sql("""show tables in orderdb""")
 table_exists = table_list.filter(col("tableName")=="catalog").count()
 if (table_exists==1):
     final_new_products = spark.read.table("orderdb.catalog").join(final_products,["product_name"], "leftanti")
     ##SAVE NEW PRODUCTS
-    final_new_products2 = DataFrameWriter(final_new_products.select("product_name","aisle","department"))
-    final_new_products2.jdbc(url=url, table= "NEW_CATALOG", mode ="overwrite", properties = properties)
+    final_new_products.write.mode("overwrite").saveAsTable("orderdb.new_catalog")
 else:
-    final_new_products2 = DataFrameWriter(final_new_products.select("product_name","aisle","department"))
-    final_new_products2.jdbc(url=url, table= "CATALOG", mode ="overwrite", properties = properties)
-'''
+    final_products.write.mode("overwrite").saveAsTable("orderdb.catalog")
+
 ##READ CSV
 sales = spark.read.format('com.databricks.spark.csv').options(header='true', inferschema='true', quote='"', delimiter=',').\
 option("encoding", "ISO-8859-1").load('/user/mpineda/0*')
@@ -224,6 +222,9 @@ marketing2 = marketing.withColumn("MOM_SINGLE", lit(ms.count())).withColumn("MOM
 marketing3 = marketing2.withColumn("MOM", col("MOM")-col("MOM_PET_FRIENDLY")).withColumn("SINGLE", col("SINGLE")-col("SINGLE_PET_FRIENDLY")).withColumn("PET_FRIENDLY", col("PET_FRIENDLY")-col("MOM_PET_FRIENDLY")-col("SINGLE_PET_FRIENDLY"))
 
 print("ALL OK")
+head_final.write.mode("overwrite").saveAsTable("orderdb.ORDER_HEADER")
+det_final.write.mode("overwrite").saveAsTable("orderdb.ORDER_DETAIL")
+client_final.write.mode("overwrite").saveAsTable("orderdb.CLIENT")
 
 """
 ##CONECTION AND SAVE... PENDING
@@ -241,5 +242,3 @@ det_final1.jdbc(url=url, table= "ORDER_DETAIL", mode ="overwrite", properties = 
 
 client_final1 = DataFrameWriter(client_final)
 client_final1.jdbc(url=url, table= "CLIENT", mode ="overwrite", properties = properties)
-
-"""
