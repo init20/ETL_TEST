@@ -53,17 +53,18 @@ def number_for_day(df):
     when((col("ORDER_DOW")==1), lit("Monday")).when((col("ORDER_DOW")==2), lit("Tuesday")).when((col("ORDER_DOW")==3), \
     lit("Wednesday")).when((col("ORDER_DOW")==4), lit("Thursday")).when((col("ORDER_DOW")==5), lit("Friday")).otherwise("Saturday"))
 
-def get_quantiles(df):
+def get_quantiles(df_in):
     control = False
     for i in range(7):
-        day = df.filter(col("ORDER_DOW")==int(i)).select("QTY").withColumn("QTY", col("QTY").cast(IntegerType()))
+        day = df_in.filter(col("ORDER_DOW")==int(i)).select("QTY").withColumn("QTY", col("QTY").cast(IntegerType()))
         if (day.count() > 0):
             df = quantile(day)
             df2 = df.withColumn("ORDER_DOW", lit(int(i)))
             if (not control):
                 quantiles = df2.limit(0)
                 control = True
-        quantiles = quantiles.union(df2)
+            quantiles = quantiles.union(df2)
+    return quantiles
 
 products = json_to_productsDF()
 ##count and order by department
@@ -96,10 +97,10 @@ table_exists = table_list.filter(col("tableName")=="catalog").count()
 if (table_exists==1):
     final_new_products = spark.read.table("orderdb.catalog").join(final_products,["product_name"], "leftanti")
     ##SAVE NEW PRODUCTS
-    final_new_products2 = DataFrameWriter(final_new_products)
+    final_new_products2 = DataFrameWriter(final_new_products.select("product_name","aisle","department"))
     final_new_products2.jdbc(url=url, table= "NEW_CATALOG", mode ="overwrite", properties = properties)
 else:
-    final_new_products2 = DataFrameWriter(final_new_products)
+    final_new_products2 = DataFrameWriter(final_new_products.select("product_name","aisle","department"))
     final_new_products2.jdbc(url=url, table= "CATALOG", mode ="overwrite", properties = properties)
 '''
 ##READ CSV
